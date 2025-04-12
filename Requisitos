@@ -1,0 +1,6 @@
+Requisitos:
+
+- Bd para registrar quais materias sao 72h ou 32h acho(firebase)
+- Tela para cadastrar essas materias
+- Quando buscar uma materia que n tem no banco adicionar ela nas materias
+- Quando n tiver informaçao da materia tipo hora colocar algo como indefinido 
