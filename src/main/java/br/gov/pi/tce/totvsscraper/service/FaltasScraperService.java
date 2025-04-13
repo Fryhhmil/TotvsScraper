@@ -2,31 +2,23 @@ package br.gov.pi.tce.totvsscraper.service;
 
 import br.gov.pi.tce.totvsscraper.dto.FaltaDTO;
 import br.gov.pi.tce.totvsscraper.model.Falta;
-import br.gov.pi.tce.totvsscraper.model.FaltaData;
 import br.gov.pi.tce.totvsscraper.model.Faltas;
-import ch.qos.logback.core.util.TimeUtil;
-import jakarta.annotation.PostConstruct;
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
+import br.gov.pi.tce.totvsscraper.model.RelacaoFalta;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import io.github.bonigarcia.wdm.WebDriverManager;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class FaltasScraperService {
+    @Autowired
+    private RelacaoFaltaService relacaoFaltaService;
 
     public List<FaltaDTO> acessarEExtrairFaltas(String cokie) {
         String url = "https://grupoeducacional127611.rm.cloudtotvs.com.br/FrameHTML/RM/API/TOTVSEducacional/FaltaEtapa";
@@ -75,7 +67,18 @@ public class FaltasScraperService {
             dto.setFaltas(Integer.parseInt(falta.getTotalFaltas()) / 2);
             dto.setPercentual(falta.getPercentual());
 
-//            dto.setPodeFaltar(Integer.parseInt(falta.getTotalFaltas()));
+            RelacaoFalta relacaoFaltas = relacaoFaltaService
+                    .buscarPorCodigoDisciplina(dto.getCodigoDisciplina());
+
+            Integer podeFaltar = null;
+            if (relacaoFaltas == null) {
+                RelacaoFalta novoRelacaoFalta = new RelacaoFalta(dto);
+                this.relacaoFaltaService.salvar(novoRelacaoFalta);
+
+            } else if (relacaoFaltas.getDiasParaFaltar() != null) {
+                podeFaltar = relacaoFaltas.getDiasParaFaltar() - dto.getFaltas();
+            }
+            dto.setPodeFaltar(podeFaltar);
 
             faltasDTO.add(dto);
         }
