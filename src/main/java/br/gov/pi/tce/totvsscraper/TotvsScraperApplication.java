@@ -8,20 +8,16 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class TotvsScraperApplication implements CommandLineRunner {
-    @Autowired
-    private FaltasScraperService faltasScraperService;
-    @Autowired
-    private LoginService loginService;
+public class TotvsScraperApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(TotvsScraperApplication.class, args);
     }
 
-    @Override
-    public void run(String... args) throws Exception {
-        String cookie = loginService.acessarPortal("03524463312", "NINJA007");
-        faltasScraperService.acessarEExtrairFaltas(cookie);
-
-    }
+//    @Override
+//    public void run(String... args) throws Exception {
+//        String cookie = loginService.acessarPortal("03524463312", "NINJA007");
+//        faltasScraperService.acessarEExtrairFaltas(cookie);
+//
+//    }
 }

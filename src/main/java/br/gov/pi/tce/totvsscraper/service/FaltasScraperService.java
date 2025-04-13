@@ -1,5 +1,7 @@
 package br.gov.pi.tce.totvsscraper.service;
 
+import br.gov.pi.tce.totvsscraper.dto.FaltaDTO;
+import br.gov.pi.tce.totvsscraper.model.Falta;
 import br.gov.pi.tce.totvsscraper.model.FaltaData;
 import br.gov.pi.tce.totvsscraper.model.Faltas;
 import ch.qos.logback.core.util.TimeUtil;
@@ -19,13 +21,14 @@ import io.github.bonigarcia.wdm.WebDriverManager;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Service
 public class FaltasScraperService {
 
-    public void acessarEExtrairFaltas(String cokie) {
+    public List<FaltaDTO> acessarEExtrairFaltas(String cokie) {
         String url = "https://grupoeducacional127611.rm.cloudtotvs.com.br/FrameHTML/RM/API/TOTVSEducacional/FaltaEtapa";
 
         // Cria o RestTemplate
@@ -59,8 +62,24 @@ public class FaltasScraperService {
                 Faltas.class
         );
 
-        // Imprime a resposta
-        System.out.println("Status: " + response.getStatusCode());
-        System.out.println("Body: " + response.getBody());
+        return this.toFaltaDTO(response.getBody().getData().getFaltasEtapa());
+    }
+
+    public List<FaltaDTO> toFaltaDTO(List<Falta> faltas) {
+        List<FaltaDTO> faltasDTO = new ArrayList<>();
+        for (Falta falta : faltas) {
+            FaltaDTO dto = new FaltaDTO();
+            dto.setCodigoDisciplina(falta.getCodDisc());
+            dto.setCodigoTurma(falta.getCodTurma());
+            dto.setNomeMateria(falta.getDisciplina());
+            dto.setFaltas(Integer.parseInt(falta.getTotalFaltas()) / 2);
+            dto.setPercentual(falta.getPercentual());
+
+//            dto.setPodeFaltar(Integer.parseInt(falta.getTotalFaltas()));
+
+            faltasDTO.add(dto);
+        }
+
+        return faltasDTO;
     }
 }

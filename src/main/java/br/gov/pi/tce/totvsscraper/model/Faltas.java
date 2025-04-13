@@ -7,6 +7,7 @@ import java.util.List;
 
 @Data
 public class Faltas {
+    @JsonProperty("data")
     FaltaData data;
 
     Object messages;
