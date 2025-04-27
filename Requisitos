@@ -1,6 +1,39 @@
 Requisitos:
 
-- Bd para registrar quais materias sao 72h ou 32h acho(firebase)
-- Tela para cadastrar essas materias
-- Quando buscar uma materia que n tem no banco adicionar ela nas materias
-- Quando n tiver informaçao da materia tipo hora colocar algo como indefinido 
+- Tela para cadastrar horario das materias(ADM ONLY)
+- Tabela pra horario de aulas
+- Calcular quantas vezes pode faltar em cada dia da semana
+- pegar inspiraçao do tachiyomi
+
+Matéria	Segunda	Terça	Quarta	Quinta	Sexta
+1ª Matéria	Matemática	Física	História	Matemática	Geografia
+2ª Matéria	Inglês	Biologia	Química	Português	Sociologia
+3ª Matéria	Filosofia	-	-	Ed. Física	-
+Faltas Permitidas	3 faltas	2 faltas	1 falta	4 faltas	0 faltas
+🎨 Dicas de UI/UX:
+Usa cores leves para os dias da semana, com cartõezinhos (cards) dentro da tabela.
+
+Os quadrinhos das matérias podem ter ícones (livro, ciência, etc.) pra dar um charme.
+
+A seção de “faltas” pode ser uma barra de progresso ou um badge numérico com cor:
+
+Verde (ok), amarelo (atenção), vermelho (limite estourado).
+
+- fazer um card na tela inicial com o dia da semana de hj
+┌────────────┐
+│ Segunda    │
+│ --------   │
+│ 📚 Matérias: Matemática, Inglês, Filosofia
+│ 🚦 Faltas restantes: ✅ 3
+└────────────┘
+
+
+algoritimo para ler horario
+    filtrar pelo dia da semana,
+    ordenar pelo id,
+- algoritimo de calculo de poder faltar
+    fazer um map para deixar só o codDisc(diciplina),
+    se conter aquela diciplina adicionar na lista de diciplina,
+    pegar a disciplina com menor numero de faltas restante e mostrar.
+
+

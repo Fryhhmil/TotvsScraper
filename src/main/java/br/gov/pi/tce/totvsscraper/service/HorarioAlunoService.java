@@ -1,9 +1,9 @@
 package br.gov.pi.tce.totvsscraper.service;
 
-import br.gov.pi.tce.totvsscraper.dto.FaltaDTO;
-import br.gov.pi.tce.totvsscraper.model.Falta;
+import br.gov.pi.tce.totvsscraper.dto.CookieTurmaDto;
+import br.gov.pi.tce.totvsscraper.model.HorarioAluno;
 import br.gov.pi.tce.totvsscraper.model.OrigemDTO;
-import br.gov.pi.tce.totvsscraper.model.RelacaoFalta;
+import br.gov.pi.tce.totvsscraper.repository.HorarioAlunoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -14,14 +14,15 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
-public class FaltasScraperService {
+public class HorarioAlunoService {
     @Autowired
-    private RelacaoFaltaService relacaoFaltaService;
+    private HorarioAlunoRepository horarioAlunoRepository;
 
-    public List<FaltaDTO> acessarEExtrairFaltas(String cokie) {
-        String url = "https://grupoeducacional127611.rm.cloudtotvs.com.br/FrameHTML/RM/API/TOTVSEducacional/FaltaEtapa";
+    protected List<HorarioAluno> acessarEExtrairHorarioAluno(String cookie) {
+        String url = "https://grupoeducacional127611.rm.cloudtotvs.com.br/FrameHTML/RM/API/TOTVSEducacional/QuadroHorarioAluno";
 
         // Cria o RestTemplate
         RestTemplate restTemplate = new RestTemplate();
@@ -40,10 +41,10 @@ public class FaltasScraperService {
         headers.set("Sec-Fetch-Site", "same-origin");
         headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36");
 
-        // Coloque seu cookie completo aqui
-        headers.set("Cookie", cokie);
+        // Coloca o cookie completo
+        headers.set("Cookie", cookie);
 
-        // Monta a entidade com os headers
+        // Monta a entidade
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         // Faz a requisição
@@ -54,35 +55,29 @@ public class FaltasScraperService {
                 OrigemDTO.class
         );
 
-        return this.toFaltaDTO(response.getBody().getData().getFaltasEtapa());
+        // Processa e retorna como quiser
+
+        return Objects.requireNonNull(response.getBody()).getData().getHorarioAluno();
     }
 
-    public List<FaltaDTO> toFaltaDTO(List<Falta> faltas) {
-        List<FaltaDTO> faltasDTO = new ArrayList<>();
-        for (Falta falta : faltas) {
-            FaltaDTO dto = new FaltaDTO();
-            dto.setCodigoDisciplina(falta.getCodDisc());
-            dto.setCodigoTurma(falta.getCodTurma());
-            dto.setNomeMateria(falta.getDisciplina());
-            dto.setFaltas(Integer.parseInt(falta.getTotalFaltas()) / 2);
-            dto.setPercentual(falta.getPercentual());
+    public List<HorarioAluno> getHorarioAluno(CookieTurmaDto cookie) {
+        String codTurma = cookie.getCodTurma();
+        List<HorarioAluno> horarioAluno = new ArrayList<>();
 
-            RelacaoFalta relacaoFaltas = relacaoFaltaService
-                    .buscarPorCodigoDisciplina(dto.getCodigoDisciplina());
+        if (cookie.getCookie() == null || cookie.getCookie().isEmpty()) throw  new RuntimeException("Cookie is null or empty");
 
-            Integer podeFaltar = null;
-            if (relacaoFaltas == null) {
-                RelacaoFalta novoRelacaoFalta = new RelacaoFalta(dto);
-                this.relacaoFaltaService.salvar(novoRelacaoFalta);
-
-            } else if (relacaoFaltas.getDiasParaFaltar() != null) {
-                podeFaltar = relacaoFaltas.getDiasParaFaltar() - dto.getFaltas();
-            }
-            dto.setPodeFaltar(podeFaltar);
-
-            faltasDTO.add(dto);
+        if (codTurma != null && !codTurma.isEmpty()) {
+            horarioAluno = horarioAlunoRepository.findHorarioAlunoByCodTurma(codTurma);
         }
 
-        return faltasDTO;
+        if (horarioAluno.isEmpty()) {
+            horarioAluno =  this.acessarEExtrairHorarioAluno(cookie.getCookie());
+            horarioAluno = horarioAluno.stream()
+                    .filter(x -> x.getId() != null)
+                    .toList();
+        }
+
+        return horarioAluno;
     }
+
 }

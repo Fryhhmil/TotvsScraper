@@ -9,4 +9,7 @@ import java.util.List;
 public class FaltaData {
     @JsonProperty("FaltasEtapa")
     List<Falta> faltasEtapa;
+
+    @JsonProperty("SHorarioAluno")
+    List<HorarioAluno> horarioAluno;
 }

@@ -1,10 +1,11 @@
 package br.gov.pi.tce.totvsscraper.controller;
 
+import br.gov.pi.tce.totvsscraper.dto.CookieTurmaDto;
 import br.gov.pi.tce.totvsscraper.dto.FaltaDTO;
 import br.gov.pi.tce.totvsscraper.dto.LoginFormDTO;
-import br.gov.pi.tce.totvsscraper.model.Falta;
-import br.gov.pi.tce.totvsscraper.model.Faltas;
+import br.gov.pi.tce.totvsscraper.model.HorarioAluno;
 import br.gov.pi.tce.totvsscraper.service.FaltasScraperService;
+import br.gov.pi.tce.totvsscraper.service.HorarioAlunoService;
 import br.gov.pi.tce.totvsscraper.service.LoginService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +25,8 @@ public class HomeController {
     private LoginService loginService;
     @Autowired
     private FaltasScraperService faltasScraperService;
+    @Autowired
+    private HorarioAlunoService horarioAlunoService;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginFormDTO loginForm) {
@@ -57,5 +60,24 @@ public class HomeController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
 
+    }
+
+    @PostMapping(value = "/buscar-horario")
+    public ResponseEntity<?> buscarHorario(
+            @RequestBody String cookie,
+            @RequestParam(required = false) String codTurma
+    ) {
+        try {
+            if (cookie == null || cookie.isBlank()) {
+                return new ResponseEntity<>(HttpStatus.NOT_ACCEPTABLE);
+            }
+            List<HorarioAluno> horarioAluno = horarioAlunoService.getHorarioAluno(new CookieTurmaDto(codTurma, cookie));
+            if (horarioAluno != null && !horarioAluno.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.OK).body(horarioAluno);
+            }
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
     }
 }

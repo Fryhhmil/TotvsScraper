@@ -3,10 +3,8 @@ package br.gov.pi.tce.totvsscraper.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
-import java.util.List;
-
 @Data
-public class Faltas {
+public class OrigemDTO {
     @JsonProperty("data")
     FaltaData data;
 
