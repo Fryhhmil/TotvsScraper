@@ -1,6 +1,10 @@
 package br.gov.pi.tce.totvsscraper.service;
 
 import br.gov.pi.tce.totvsscraper.dto.CookieTurmaDto;
+import br.gov.pi.tce.totvsscraper.dto.FaltaDTO;
+import br.gov.pi.tce.totvsscraper.dto.HorarioAlunoDTO;
+import br.gov.pi.tce.totvsscraper.dto.HorarioAlunoLinhaDTO;
+import br.gov.pi.tce.totvsscraper.exception.CookieException;
 import br.gov.pi.tce.totvsscraper.model.HorarioAluno;
 import br.gov.pi.tce.totvsscraper.model.OrigemDTO;
 import br.gov.pi.tce.totvsscraper.repository.HorarioAlunoRepository;
@@ -10,6 +14,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
@@ -20,6 +25,8 @@ import java.util.Objects;
 public class HorarioAlunoService {
     @Autowired
     private HorarioAlunoRepository horarioAlunoRepository;
+    @Autowired
+    private FaltasScraperService faltasScraperService;
 
     protected List<HorarioAluno> acessarEExtrairHorarioAluno(String cookie) {
         String url = "https://grupoeducacional127611.rm.cloudtotvs.com.br/FrameHTML/RM/API/TOTVSEducacional/QuadroHorarioAluno";
@@ -60,7 +67,8 @@ public class HorarioAlunoService {
         return Objects.requireNonNull(response.getBody()).getData().getHorarioAluno();
     }
 
-    public List<HorarioAluno> getHorarioAluno(CookieTurmaDto cookie) {
+    public HorarioAlunoDTO getHorarioAluno(CookieTurmaDto cookie) {
+        HorarioAlunoDTO horarioAlunoDTO = new HorarioAlunoDTO();
         String codTurma = cookie.getCodTurma();
         List<HorarioAluno> horarioAluno = new ArrayList<>();
 
@@ -71,13 +79,92 @@ public class HorarioAlunoService {
         }
 
         if (horarioAluno.isEmpty()) {
-            horarioAluno =  this.acessarEExtrairHorarioAluno(cookie.getCookie());
+            try {
+                horarioAluno =  this.acessarEExtrairHorarioAluno(cookie.getCookie());
+            }
+            catch (HttpClientErrorException.Unauthorized e) {
+                throw new CookieException("Cookie Expirado!");
+            }
+
             horarioAluno = horarioAluno.stream()
                     .filter(x -> x.getId() != null)
                     .toList();
         }
 
-        return horarioAluno;
+        // Agora separar por dia
+        List<HorarioAluno> segunda = new ArrayList<>();
+        List<HorarioAluno> terca = new ArrayList<>();
+        List<HorarioAluno> quarta = new ArrayList<>();
+        List<HorarioAluno> quinta = new ArrayList<>();
+        List<HorarioAluno> sexta = new ArrayList<>();
+
+        for (HorarioAluno ha : horarioAluno) {
+            switch (ha.getDiaSemana()) {
+                case "2" -> segunda.add(ha);
+                case "3" -> terca.add(ha);
+                case "4" -> quarta.add(ha);
+                case "5" -> quinta.add(ha);
+                case "6" -> sexta.add(ha);
+            }
+        }
+
+        // Definir o máximo de linhas que vamos precisar
+        int max = Math.max(
+                segunda.size(),
+                Math.max(terca.size(), Math.max(quarta.size(), Math.max(quinta.size(), sexta.size())))
+        );
+
+        for (int i = 0; i < max; i++) {
+            HorarioAlunoLinhaDTO linha = new HorarioAlunoLinhaDTO();
+            linha.setSegunda(i < segunda.size() ? segunda.get(i) : null);
+            linha.setTerca(i < terca.size() ? terca.get(i) : null);
+            linha.setQuarta(i < quarta.size() ? quarta.get(i) : null);
+            linha.setQuinta(i < quinta.size() ? quinta.get(i) : null);
+            linha.setSexta(i < sexta.size() ? sexta.get(i) : null);
+
+            horarioAlunoDTO.getLinhas().add(linha);
+        }
+
+        List<FaltaDTO> faltasDTO = faltasScraperService.acessarEExtrairFaltas(cookie.getCookie());
+
+        horarioAlunoDTO.setPodefaltarSegunda(this.pegarMaiorValorHorarioLista(segunda, faltasDTO));
+        horarioAlunoDTO.setPodefaltarTerca(this.pegarMaiorValorHorarioLista(terca, faltasDTO));
+        horarioAlunoDTO.setPodefaltarQuarta(this.pegarMaiorValorHorarioLista(quarta, faltasDTO));
+        horarioAlunoDTO.setPodefaltarQuinta(this.pegarMaiorValorHorarioLista(quinta, faltasDTO));
+        horarioAlunoDTO.setPodefaltarSexta(this.pegarMaiorValorHorarioLista(sexta, faltasDTO));
+
+        return horarioAlunoDTO;
+    }
+
+    private int pegarMaiorValorHorarioLista(List<HorarioAluno> lista, List<FaltaDTO> faltasDTO) {
+        Integer menorFalta = null;
+        List<FaltaDTO> faltasSemana = new ArrayList<>();
+
+        List<String> materiaSemana = lista.stream()
+                .map(HorarioAluno::getCodDisc)
+                .toList();
+
+        for (String materia : materiaSemana) {
+            List<FaltaDTO> faltaMateriaAtual = faltasDTO.stream()
+                    .filter(faltaDTO -> faltaDTO.getCodigoDisciplina().equals(materia))
+                    .toList();
+
+            faltasSemana.addAll(faltaMateriaAtual);
+        }
+
+        for (FaltaDTO faltaDTO : faltasSemana) {
+            if (menorFalta == null) {
+                menorFalta = faltaDTO.getPodeFaltar();
+                continue;
+            }
+
+            menorFalta = Math.min(menorFalta, faltaDTO.getPodeFaltar());
+        }
+        if (menorFalta == null) {
+            throw new RuntimeException("Erro inesperado na menor falta");
+        }
+
+        return menorFalta;
     }
 
 }

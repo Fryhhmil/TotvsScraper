@@ -4,6 +4,7 @@ Requisitos:
 - Tabela pra horario de aulas
 - Calcular quantas vezes pode faltar em cada dia da semana
 - pegar inspiraçao do tachiyomi
+- cookie com limite de expirar
 
 Matéria	Segunda	Terça	Quarta	Quinta	Sexta
 1ª Matéria	Matemática	Física	História	Matemática	Geografia
@@ -18,15 +19,6 @@ Os quadrinhos das matérias podem ter ícones (livro, ciência, etc.) pra dar um
 A seção de “faltas” pode ser uma barra de progresso ou um badge numérico com cor:
 
 Verde (ok), amarelo (atenção), vermelho (limite estourado).
-
-- fazer um card na tela inicial com o dia da semana de hj
-┌────────────┐
-│ Segunda    │
-│ --------   │
-│ 📚 Matérias: Matemática, Inglês, Filosofia
-│ 🚦 Faltas restantes: ✅ 3
-└────────────┘
-
 
 algoritimo para ler horario
     filtrar pelo dia da semana,
