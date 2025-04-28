@@ -10,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
@@ -57,7 +58,8 @@ public class FaltasScraperService {
         return this.toFaltaDTO(response.getBody().getData().getFaltasEtapa());
     }
 
-    public List<FaltaDTO> toFaltaDTO(List<Falta> faltas) {
+    @Transactional(rollbackFor = Exception.class)
+    public synchronized List<FaltaDTO> toFaltaDTO(List<Falta> faltas) {
         List<FaltaDTO> faltasDTO = new ArrayList<>();
         for (Falta falta : faltas) {
             FaltaDTO dto = new FaltaDTO();
@@ -81,6 +83,7 @@ public class FaltasScraperService {
             dto.setPodeFaltar(podeFaltar);
 
             faltasDTO.add(dto);
+
         }
 
         return faltasDTO;

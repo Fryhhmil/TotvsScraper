@@ -29,3 +29,5 @@ algoritimo para ler horario
     pegar a disciplina com menor numero de faltas restante e mostrar.
 
 
+docker build -t totvsscraper-web:latest .
+docker save -o totvsscraper-web.tar totvsscraper-web:latest
