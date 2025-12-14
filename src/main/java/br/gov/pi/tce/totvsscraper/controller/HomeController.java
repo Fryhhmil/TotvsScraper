@@ -47,8 +47,8 @@ public class HomeController {
 
     }
 
-    @PostMapping("/buscar-faltas")
-    public ResponseEntity<?> buscarFaltas(@RequestBody String cookie) {
+    @GetMapping("/buscar-faltas")
+    public ResponseEntity<?> buscarFaltas(@RequestParam String cookie) {
         try {
             if (cookie == null || cookie.isBlank()) {
                 return new ResponseEntity<>(HttpStatus.NOT_ACCEPTABLE);
@@ -64,9 +64,9 @@ public class HomeController {
 
     }
 
-    @PostMapping(value = "/buscar-horario")
+    @GetMapping(value = "/buscar-horario")
     public ResponseEntity<?> buscarHorario(
-            @RequestBody String cookie,
+            @RequestParam String cookie,
             @RequestParam(required = false) String codTurma
     ) {
         try {

@@ -1,115 +1,196 @@
 package br.gov.pi.tce.totvsscraper.service;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import org.openqa.selenium.By;
-import org.openqa.selenium.Cookie;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import okhttp3.*;
 import org.springframework.stereotype.Service;
-import io.github.bonigarcia.wdm.WebDriverManager;
 
-import java.time.Duration;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import java.io.IOException;
+import java.net.CookieManager;
+import java.net.CookiePolicy;
+import java.util.List;
 
 @Service
 public class LoginService {
 
-    private WebDriver driver;
-    private static final String PORTAL_URL = "https://grupoeducacional127611.rm.cloudtotvs.com.br/FrameHTML/Web/app/edu/PortalEducacional/login/";
+    private final String BASE_URL = "https://grupoeducacional127611.rm.cloudtotvs.com.br";
+    private final OkHttpClient client;
+    private final CookieManager cookieManager;
+    private final ObjectMapper mapper = new ObjectMapper();
 
+    public LoginService() {
+        cookieManager = new CookieManager();
+        cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
 
-    @PostConstruct
-    public void setup() {
-        WebDriverManager.chromedriver()
-                .browserVersionDetectionCommand("/usr/bin/chromium --version")
-                .setup();
-    }
-
-    @PreDestroy
-    public void cleanup() {
-        if (driver != null) {
-            driver.quit();
-        }
+        this.client = new OkHttpClient.Builder()
+                .cookieJar(new JavaNetCookieJar(cookieManager))
+                .followRedirects(false) // ESSENCIAL para capturar a key
+                .build();
     }
 
     public String acessarPortal(String usuario, String senha) {
         try {
-            ChromeOptions options = new ChromeOptions();
-            options.addArguments("--headless=new"); // usa o modo headless moderno
-            options.addArguments("--disable-gpu"); // evita alguns bugs gráficos mesmo no headless
-            options.addArguments("--no-sandbox");
-            options.addArguments("--disable-dev-shm-usage");
-            options.addArguments("--window-size=1920,1080"); // garante uma viewport decente
-//            options.addArguments("--user-data-dir=/home/chrome-profile-" + UUID.randomUUID());
+            String key = this.loginAndGetKey(usuario, senha);
+            this.consumeKey(key);
 
-            driver = new ChromeDriver(options);
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(30));
+            JsonNode contextos = this.getContextos();
+            JsonNode ctx = contextos.get(contextos.size() - 1);
+            JsonNode rawNode = ctx.get("IDCONTEXTOALUNO");
+            String idContextoAlunoRaw = rawNode.toString().replace("\"", "");
 
-            driver.get(PORTAL_URL);
+            List<String> cookies = this.selecionarContexto(idContextoAlunoRaw);
 
-            WebElement userField = wait.until(ExpectedConditions.presenceOfElementLocated(By.id("User")));
-            WebElement passField = wait.until(ExpectedConditions.presenceOfElementLocated(By.id("Pass")));
-            WebElement acessarBtn = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//input[@type='submit' and @value='Acessar']")));
+            return getCookiesAsHeader();
 
-            userField.sendKeys(usuario);
-            passField.sendKeys(senha);
-            acessarBtn.click();
-
-//            // Espera o "Carregando" aparecer (opcional, mas ajuda em alguns casos)
-//            wait.until(ExpectedConditions.presenceOfElementLocated(
-//                    By.xpath("//p[contains(@class, 'text-muted') and contains(text(), 'Carregando')]")
-//            ));
-//
-//            // Espera o "Carregando" desaparecer
-//            wait.until(ExpectedConditions.invisibilityOfElementLocated(
-//                    By.xpath("//p[contains(@class, 'text-muted') and contains(text(), 'Carregando')]")
-//            ));
-
-            wait.until(d -> {
-                String currentUrl = d.getCurrentUrl();
-                System.out.println("URL atual: " + currentUrl);
-                return currentUrl.equals("https://grupoeducacional127611.rm.cloudtotvs.com.br/FrameHTML/Web//app/edu/PortalEducacional/#/");
-            });
-
-
-            wait.until(ExpectedConditions.invisibilityOfElementLocated(By.xpath("//p[contains(@class, 'text-muted') and contains(text(), 'Carregando')]")));
-
-
-//            // Vai para a página de faltas
-//            driver.get("https://grupoeducacional127611.rm.cloudtotvs.com.br/FrameHTML/Web//app/edu/PortalEducacional/#/faltas");
-//
-//            // Aguarda a tabela aparecer (se quiser garantir)
-////            wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("table.grid")));
-//            TimeUnit.SECONDS.sleep(5);
-
-            // Pega os cookies
-            Set<Cookie> cookies = driver.manage().getCookies();
-
-            // Transforma em uma string no formato: nome1=valor1; nome2=valor2;
-            String cookieHeader = cookies.stream()
-                    .map(cookie -> cookie.getName() + "=" + cookie.getValue())
-                    .collect(Collectors.joining("; "));
-
-            System.out.println("Header de Cookies:");
-            System.out.println(cookieHeader);
-
-            return cookieHeader; // pode ser retornado ou usado numa próxima requisição
         } catch (Exception e) {
-            e.printStackTrace();
-            return "Erro: " + e.getMessage();
+            throw new RuntimeException(e);
         }
-        finally {
-            if (driver != null) {
-                driver.quit();
+
+    }
+
+    /* =========================
+       1. LOGIN + CAPTURA DA KEY
+       ========================= */
+    private String loginAndGetKey(String usuario, String senha) throws Exception {
+
+        RequestBody body = new FormBody.Builder()
+                .add("User", usuario)
+                .add("Pass", senha)
+                .add("Alias", "CorporeRM")
+                .build();
+
+        Request request = new Request.Builder()
+                .url(BASE_URL + "/Corpore.Net//Source/EDU-EDUCACIONAL/Public/EduPortalAlunoLogin.aspx?AutoLoginType=ExternalLogin")
+                .post(body)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+
+            System.out.println("[LOGIN] HTTP " + response.code());
+
+            if (response.code() != 302) {
+                throw new IllegalStateException("Login não retornou 302");
+            }
+
+            String location = response.header("Location");
+
+            if (location == null || !location.contains("key=")) {
+                throw new IllegalStateException("Key não encontrada no Location");
+            }
+
+            String key = extractKey(location);
+            System.out.println("KEY = " + key);
+
+            return key;
+        }
+    }
+
+    /* =========================
+       2. CONSUMIR A KEY
+       ========================= */
+    private void consumeKey(String key) throws Exception {
+
+        Request request = new Request.Builder()
+                .url(BASE_URL + "/FrameHTML/RM/API/user/AutoLoginPortal?key=" + key)
+                .get()
+                .header("Accept", "application/json")
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+
+            System.out.println("[AUTOLOGIN] HTTP " + response.code());
+
+            if (!response.isSuccessful()) {
+                throw new IllegalStateException("Erro ao consumir key");
             }
         }
     }
+
+    /* =========================
+   4.1 BUSCAR CONTEXTO (GET)
+   ========================= */
+    private JsonNode getContextos() throws Exception {
+
+        Request request = new Request.Builder()
+                .url(BASE_URL + "/FrameHTML/RM/API/TOTVSEducacional/Contexto")
+                .get()
+                .header("Accept", "application/json")
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+
+            System.out.println("[GET CONTEXTO] HTTP " + response.code());
+
+            if (!response.isSuccessful()) {
+                throw new IllegalStateException("Erro ao buscar Contexto");
+            }
+
+            String body = response.body().string();
+            return mapper.readTree(body).path("data");
+        }
+    }
+
+    /* =========================
+   4.2 SELECIONAR CONTEXTO
+   ========================= */
+    private List<String> selecionarContexto(String idContextoAluno) throws Exception {
+
+        String json = """
+    {
+      "CodColigada": 4,
+      "CodFilial": 1,
+      "CodTipoCurso": 1,
+      "IdContextoAluno": "%s",
+      "IdHabilitacaoFilial": 76,
+      "IdPerlet": 37,
+      "RA": "2092311",
+      "AcessoDadosAcademicos": true,
+      "AcessoDadosFinanceiros": true
+    }
+    """.formatted(idContextoAluno);
+
+        RequestBody body = RequestBody.create(
+                json,
+                MediaType.parse("application/json;charset=UTF-8")
+        );
+
+        Request request = new Request.Builder()
+                .url(BASE_URL + "/FrameHTML/RM/API/TOTVSEducacional/Contexto/Selecao")
+                .post(body)
+                .header("Accept", "application/json")
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+
+            System.out.println("[SELECIONAR CONTEXTO] HTTP " + response.code());
+
+            if (!response.isSuccessful()) {
+                throw new IllegalStateException("Erro ao selecionar contexto");
+            }
+            return response.headers("Set-Cookie");
+        }
+    }
+
+    /* =========================
+   UTIL
+   ========================= */
+    private String extractKey(String location) {
+        return location.substring(location.indexOf("key=") + 4);
+    }
+
+    public String getCookiesAsHeader() {
+        var cookies = cookieManager.getCookieStore().getCookies();
+
+        return cookieManager.getCookieStore()
+                .getCookies()
+                .stream()
+                .map(c -> c.getName() + "=" + c.getValue())
+                .reduce((a, b) -> a + "; " + b)
+                .orElse("");
+    }
+
+
+
+
+
 }

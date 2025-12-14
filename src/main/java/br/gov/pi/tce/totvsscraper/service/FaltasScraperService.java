@@ -66,8 +66,13 @@ public class FaltasScraperService {
             dto.setCodigoDisciplina(falta.getCodDisc());
             dto.setCodigoTurma(falta.getCodTurma());
             dto.setNomeMateria(falta.getDisciplina());
-            dto.setFaltas(Integer.parseInt(falta.getTotalFaltas()) / 2);
             dto.setPercentual(falta.getPercentual());
+
+            try {
+                dto.setFaltas(Integer.parseInt(falta.getTotalFaltas()) / 2);
+            } catch (Exception e) {
+                dto.setFaltas(0);
+            }
 
             RelacaoFalta relacaoFaltas = relacaoFaltaService
                     .buscarPorCodigoDisciplina(dto.getCodigoDisciplina());
@@ -76,7 +81,6 @@ public class FaltasScraperService {
             if (relacaoFaltas == null) {
                 RelacaoFalta novoRelacaoFalta = new RelacaoFalta(dto);
                 this.relacaoFaltaService.salvar(novoRelacaoFalta);
-
             } else if (relacaoFaltas.getDiasParaFaltar() != null) {
                 podeFaltar = relacaoFaltas.getDiasParaFaltar() - dto.getFaltas();
             }
